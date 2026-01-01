@@ -41,7 +41,7 @@ test('HTML element snapshot', () => {
 
 ### Re-exported @testing-library/react
 
-All functions from `@testing-library/react` are re-exported, so you can import directly from `bun-test-env-dom`:
+All functions from `@testing-library/react` and `@testing-library/user-event` are re-exported, so you can import directly from `bun-test-env-dom`:
 
 ```tsx
 import { render, screen, fireEvent } from 'bun-test-env-dom'

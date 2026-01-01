@@ -43,3 +43,4 @@ declare module 'bun:test' {
 }
 
 export * from '@testing-library/react'
+export * from '@testing-library/user-event'
