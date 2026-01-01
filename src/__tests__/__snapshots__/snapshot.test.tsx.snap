@@ -1,0 +1,25 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`SnapshotTest React element snapshot 1`] = `
+"<div>
+  <div>
+    before
+    <div>
+      SnapshotTestInner
+    </div>
+    after
+  </div>
+</div>"
+`;
+
+exports[`SnapshotTest HTML element snapshot with render 1`] = `
+"<div>
+  <div>
+    before
+    <div>
+      SnapshotTestInner
+    </div>
+    after
+  </div>
+</div>"
+`;

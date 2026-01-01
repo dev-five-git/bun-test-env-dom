@@ -1,7 +1,7 @@
 {
   "name": "bun-test-env-dom",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.4",
   "description": "bun-test-env-dom is a preload library that provides a ready-to-use DOM for testing",
   "author": "JeongMin Oh",
   "license": "Apache-2.0",
@@ -49,7 +49,7 @@
     "lint:fix": "biome check --write .",
     "lint": "biome check .",
     "test": "bun test",
-    "build": "tsc && bun build --target node src/index.ts --production --outfile dist/index.cjs --format cjs --packages external && bun build --target node src/index.ts --production --outfile dist/index.mjs --format esm --packages external",
+    "build": "tsc && bun scripts/clean-dts.ts && bun build --target node src/index.ts --production --outfile dist/index.cjs --format cjs --packages external && bun build --target node src/index.ts --production --outfile dist/index.mjs --format esm --packages external",
     "prepare": "bun run husky"
   }
 }

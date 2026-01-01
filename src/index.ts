@@ -8,30 +8,32 @@ import type { ReactElement } from 'react'
 import { formatHTMLElement } from './formatHTMLElement.ts'
 import { isReactElement } from './isReactElement.ts'
 
-GlobalRegistrator.register()
-expect.extend(matchers)
+if (!GlobalRegistrator.isRegistered) {
+  GlobalRegistrator.register()
+  expect.extend(matchers)
 
-const originalExpect = expect
-test.mock.module('bun:test', () => {
-  return {
-    ...test,
-    expect: (value: unknown) => {
-      if (isReactElement(value)) {
-        const { container } = render(value as ReactElement)
-        return originalExpect(formatHTMLElement(container))
-      }
-      if (value instanceof HTMLElement) {
-        return originalExpect(formatHTMLElement(value))
-      }
-      return originalExpect(value)
-    },
-  }
-})
+  const originalExpect = expect
+  test.mock.module('bun:test', () => {
+    return {
+      ...test,
+      expect: (value: unknown) => {
+        if (isReactElement(value)) {
+          const { container } = render(value as ReactElement)
+          return originalExpect(formatHTMLElement(container))
+        }
+        if (value instanceof HTMLElement) {
+          return originalExpect(formatHTMLElement(value))
+        }
+        return originalExpect(value)
+      },
+    }
+  })
 
-// Optional: cleans up `render` after each test
-afterEach(() => {
-  cleanup()
-})
+  // Optional: cleans up `render` after each test
+  afterEach(() => {
+    cleanup()
+  })
+}
 
 declare module 'bun:test' {
   interface Matchers<T>
@@ -39,3 +41,5 @@ declare module 'bun:test' {
   interface AsymmetricMatchers
     extends TestingLibraryMatchers<unknown, unknown> {}
 }
+
+export * from '@testing-library/react'
