@@ -1,7 +1,7 @@
 {
   "name": "bun-test-env-dom",
   "type": "module",
-  "version": "0.0.4",
+  "version": "1.0.0",
   "description": "bun-test-env-dom is a preload library that provides a ready-to-use DOM for testing",
   "author": "JeongMin Oh",
   "license": "Apache-2.0",
