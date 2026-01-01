@@ -1,0 +1,6 @@
+[test]
+preload = ["./src/index.ts"]
+coverage = true
+coverageSkipTestFiles = true
+coverageThreshold = 1.0
+coverageReporter  = ["text", "lcov"] 
