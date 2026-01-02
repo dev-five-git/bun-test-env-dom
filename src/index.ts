@@ -12,15 +12,33 @@ if (!GlobalRegistrator.isRegistered) {
   GlobalRegistrator.register()
   expect.extend(matchers)
 
+  const methods = ['toMatchSnapshot', 'toMatchInlineSnapshot', 'toContain']
+
   const originalExpect = expect
   test.mock.module('bun:test', () => {
     const expect = (value: unknown) => {
-      if (isReactElement(value)) {
-        const { container } = render(value as ReactElement)
-        return originalExpect(formatHTMLElement(container))
-      }
-      if (value instanceof HTMLElement) {
-        return originalExpect(formatHTMLElement(value))
+      if (value instanceof HTMLElement || isReactElement(value)) {
+        const element =
+          value instanceof HTMLElement
+            ? value
+            : (render(value as ReactElement).container
+                .children[0] as HTMLElement)
+        const stringRet = originalExpect(formatHTMLElement(element))
+        const jsonRet = originalExpect(element)
+        for (const method of methods) {
+          ;(jsonRet as unknown as Record<string, unknown>)[method] = (
+            ...args: unknown[]
+          ) => {
+            return (
+              stringRet as unknown as Record<
+                string,
+                (...args: unknown[]) => unknown
+              >
+            )[method]?.(...(args as [object, string]))
+          }
+        }
+
+        return jsonRet
       }
       return originalExpect(value)
     }

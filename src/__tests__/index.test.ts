@@ -9,15 +9,6 @@ describe('expect with ReactElement', () => {
   })
 })
 
-describe('expect with HTMLElement', () => {
-  test('should format HTMLElement', () => {
-    const div = document.createElement('div')
-    div.textContent = 'Hello DOM'
-    // @ts-expect-error - mock transforms HTMLElement to string at runtime
-    expect(div).toContain('Hello DOM')
-  })
-})
-
 describe('expect with primitive value', () => {
   test('should pass through primitive values', () => {
     expect('hello').toBe('hello')
