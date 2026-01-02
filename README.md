@@ -2,6 +2,16 @@
 
 A preload library for Bun that provides a ready-to-use DOM environment for testing. It automatically sets up [happy-dom](https://github.com/capricorn86/happy-dom) and enables proper snapshot testing for React and HTML elements with beautifully formatted output.
 
+## Why?
+
+Without this library, Bun's snapshot testing outputs unreadable React internals (FiberNode, stateNode, etc.):
+
+![Before - Unreadable snapshot output](media/before.png)
+
+With `bun-test-env-dom`, snapshots are clean, formatted HTML that's easy to read and review:
+
+![After - Clean HTML snapshots](media/after.png)
+
 ## Installation
 
 ```bash
