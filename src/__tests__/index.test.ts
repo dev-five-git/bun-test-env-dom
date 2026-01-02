@@ -22,5 +22,6 @@ describe('expect with primitive value', () => {
   test('should pass through primitive values', () => {
     expect('hello').toBe('hello')
     expect(123).toBe(123)
+    expect(123).toEqual(expect.any(Number))
   })
 })

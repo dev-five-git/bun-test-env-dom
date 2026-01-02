@@ -1,0 +1,5 @@
+{
+  "changes": { "package.json": "Patch" },
+  "note": "Add static function",
+  "date": "2026-01-02T04:42:38.859062400Z"
+}
