@@ -1,0 +1,5 @@
+{
+  "changes": { "package.json": "Patch" },
+  "note": "Fix bun issue",
+  "date": "2026-01-02T12:51:33.602062900Z"
+}

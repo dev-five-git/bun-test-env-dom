@@ -2,13 +2,11 @@
 
 exports[`SnapshotTest React element snapshot 1`] = `
 "<div>
+  before
   <div>
-    before
-    <div>
-      SnapshotTestInner
-    </div>
-    after
+    SnapshotTestInner
   </div>
+  after
 </div>"
 `;
 
