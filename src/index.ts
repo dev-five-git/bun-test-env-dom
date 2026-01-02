@@ -14,18 +14,20 @@ if (!GlobalRegistrator.isRegistered) {
 
   const originalExpect = expect
   test.mock.module('bun:test', () => {
+    const expect = (value: unknown) => {
+      if (isReactElement(value)) {
+        const { container } = render(value as ReactElement)
+        return originalExpect(formatHTMLElement(container))
+      }
+      if (value instanceof HTMLElement) {
+        return originalExpect(formatHTMLElement(value))
+      }
+      return originalExpect(value)
+    }
+    Object.assign(expect, originalExpect)
     return {
       ...test,
-      expect: (value: unknown) => {
-        if (isReactElement(value)) {
-          const { container } = render(value as ReactElement)
-          return originalExpect(formatHTMLElement(container))
-        }
-        if (value instanceof HTMLElement) {
-          return originalExpect(formatHTMLElement(value))
-        }
-        return originalExpect(value)
-      },
+      expect,
     }
   })
 
