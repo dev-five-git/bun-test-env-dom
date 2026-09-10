@@ -5,54 +5,81 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  publish:
+  check:
     runs-on: ubuntu-latest
-    concurrency:
-        group: ${{ github.workflow }}-${{ github.ref }}
-        cancel-in-progress: false
-    permissions:
-      # create pull request comments
-      pull-requests: write
-
-      # Actions > General > Workflow permissions for creating pull request
-      # Create brench to create pull request
-      contents: write
-
-      # Publishes through npm OIDC trusted publishing. This permission lets npm
-      # exchange GitHub's short-lived OIDC token, and public packages receive
-      # provenance automatically.
-      #
-      # PREREQUISITE: bun-test-env-dom must be registered as a Trusted Publisher
-      # on npmjs.com against repo dev-five-git/bun-test-env-dom and workflow file
-      # `publish.yml`. npm matches that filename exactly, so renaming or moving
-      # this file breaks publishing until the entry is updated.
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
-      - run: bun i
+      - run: bun install --frozen-lockfile
       - run: |
           bun lint
           bun test
           bun run build
-      # The publish command itself is selected in .changepacks/config.json.
-      # Bun packs the package, then npm publishes that tarball with OIDC (Bun
-      # cannot do OIDC itself: oven-sh/bun#22423).
-      #
-      # No NODE_AUTH_TOKEN is set anywhere: an empty token still counts as a
-      # value to npm and suppresses the OIDC exchange.
-      - name: Install Node.js
-        uses: actions/setup-node@v7
-        with:
-          registry-url: 'https://registry.npmjs.org'
-          node-version: 24
-      - name: Ensure npm >= 11.5.1 (OIDC Trusted Publishing)
-        run: npm install -g npm@latest
+
+  changepacks:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+    outputs:
+      changepacks: ${{ steps.changepacks.outputs.changepacks }}
+      pending_releases: ${{ steps.changepacks.outputs.pending_releases }}
+    steps:
+      - uses: actions/checkout@v7
+      # Only select release targets here. Actual npm publication runs in a
+      # fresh checkout, outside the action's historical-release checkout.
       - uses: changepacks/action@main
         id: changepacks
         with:
-          publish: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          publish: false
+
+  publish:
+    needs: changepacks
+    if: contains(fromJSON(needs.changepacks.outputs.changepacks || '[]'), 'package.json')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # npm Trusted Publisher must match this repository and `publish.yml`.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+      - name: Ensure npm >= 11.5.1 (OIDC Trusted Publishing)
+        run: npm install -g npm@latest
+      # Build explicitly above; publishing must not rerun the Husky prepare hook.
+      # npm performs the OIDC exchange without a long-lived npm token.
+      - name: Validate npm package
+        run: npm publish --access public --ignore-scripts --dry-run
+      - name: Publish to npm
+        run: npm publish --access public --ignore-scripts
+
+  finalize-release:
+    needs: [changepacks, publish]
+    if: needs.changepacks.outputs.pending_releases != '' && needs.changepacks.outputs.pending_releases != '{}'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      # Finalize any draft left by an earlier failed built-in publication only
+      # after npm succeeds. This job can be retried without republishing npm.
+      - uses: changepacks/action@main
+        with:
+          finalize_releases: ${{ needs.changepacks.outputs.pending_releases }}
