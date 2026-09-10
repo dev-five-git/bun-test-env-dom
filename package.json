@@ -49,7 +49,7 @@
     "lint:fix": "biome check --write .",
     "lint": "biome check .",
     "test": "bun test",
-    "build": "tsc && bun scripts/clean-dts.ts && bun build --target node src/index.ts --production --outfile dist/index.cjs --format cjs --packages external && bun build --target node src/index.ts --production --outfile dist/index.mjs --format esm --packages external",
+    "build": "tsc && bun scripts/clean-dts.ts && bun build --target node src/index.ts --production --outfile dist/index.cjs --format cjs --packages external && bun scripts/write-esm-entry.ts",
     "prepare": "bun run husky"
   }
 }
