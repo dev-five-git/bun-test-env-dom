@@ -18,19 +18,41 @@ jobs:
       # Actions > General > Workflow permissions for creating pull request
       # Create brench to create pull request
       contents: write
+
+      # Publishes through npm OIDC trusted publishing. This permission lets npm
+      # exchange GitHub's short-lived OIDC token, and public packages receive
+      # provenance automatically.
+      #
+      # PREREQUISITE: bun-test-env-dom must be registered as a Trusted Publisher
+      # on npmjs.com against repo dev-five-git/bun-test-env-dom and workflow file
+      # `publish.yml`. npm matches that filename exactly, so renaming or moving
+      # this file breaks publishing until the entry is updated.
+      id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun i
       - run: |
           bun lint
           bun test
           bun run build
+      # The publish command itself is selected in .changepacks/config.json.
+      # Bun packs the package, then npm publishes that tarball with OIDC (Bun
+      # cannot do OIDC itself: oven-sh/bun#22423).
+      #
+      # No NODE_AUTH_TOKEN is set anywhere: an empty token still counts as a
+      # value to npm and suppresses the OIDC exchange.
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          registry-url: 'https://registry.npmjs.org'
+          node-version: 24
+      - name: Ensure npm >= 11.5.1 (OIDC Trusted Publishing)
+        run: npm install -g npm@latest
       - uses: changepacks/action@main
         id: changepacks
         with:
           publish: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
