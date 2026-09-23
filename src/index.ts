@@ -84,4 +84,6 @@ declare module 'bun:test' {
 }
 
 export * from '@testing-library/react'
-export { default as userEvent } from '@testing-library/user-event'
+// Re-export the named binding, not `default`: the CJS build resolves `default`
+// with Node-style interop, which yields user-event's whole module namespace.
+export { userEvent } from '@testing-library/user-event'
