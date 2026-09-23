@@ -20,6 +20,16 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./next": {
+      "import": {
+        "types": "./dist/next/index.d.ts",
+        "default": "./dist/next.mjs"
+      },
+      "require": {
+        "types": "./dist/next/index.d.ts",
+        "default": "./dist/next.cjs"
+      }
     }
   },
   "types": "./dist/index.d.ts",
@@ -45,11 +55,14 @@
     "@testing-library/react": ">=16.3",
     "@testing-library/user-event": ">=14.6"
   },
+  "peerDependencies": {
+    "react": ">=18"
+  },
   "scripts": {
     "lint:fix": "biome check --write .",
     "lint": "biome check .",
     "test": "bun test",
-    "build": "tsc && bun scripts/clean-dts.ts && bun build --target node src/index.ts --production --outfile dist/index.cjs --format cjs --packages external && bun scripts/write-esm-entry.ts",
+    "build": "tsc && bun scripts/clean-dts.ts && bun build --target node src/index.ts --production --outfile dist/index.cjs --format cjs --packages external && bun build --target node src/next/index.ts --production --outfile dist/next.cjs --format cjs --packages external && bun scripts/write-esm-entry.ts",
     "prepare": "bun run husky"
   }
 }
