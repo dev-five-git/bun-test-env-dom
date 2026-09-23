@@ -1,5 +1,0 @@
-{
-  "changes": { "package.json": "Patch" },
-  "note": "Re-export the named userEvent so the built entries no longer expose user-event's module namespace",
-  "date": "2026-09-23T07:00:36.106611800Z"
-}
