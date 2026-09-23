@@ -18,6 +18,9 @@
         "husky": "^9.1.7",
         "typescript": "latest",
       },
+      "peerDependencies": {
+        "react": ">=18",
+      },
     },
   },
   "packages": {

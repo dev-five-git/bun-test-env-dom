@@ -26,27 +26,35 @@ const spec = (path: string) => JSON.stringify(path.replaceAll('\\', '/'))
  * came out as user-event's whole module namespace (1.0.4), where
  * `userEvent.type` is undefined. So the fixture also types through the
  * `userEvent` it imports from the built entry.
+ *
+ * `bun-test-env-dom/next` is checked the same way, from a directory without
+ * Next.js: the stand-ins have to resolve `next/*` on their own.
  */
 
 function buildArtifacts() {
-  const bundle = Bun.spawnSync(
-    [
-      'bun',
-      'build',
-      '--target',
-      'node',
-      'src/index.ts',
-      '--production',
-      '--outfile',
-      'dist/index.cjs',
-      '--format',
-      'cjs',
-      '--packages',
-      'external',
-    ],
-    { cwd: root, stdout: 'pipe', stderr: 'pipe' },
-  )
-  expect(bundle.exitCode).toBe(0)
+  for (const [source, outfile] of [
+    ['src/index.ts', 'dist/index.cjs'],
+    ['src/next/index.ts', 'dist/next.cjs'],
+  ]) {
+    const bundle = Bun.spawnSync(
+      [
+        'bun',
+        'build',
+        '--target',
+        'node',
+        source as string,
+        '--production',
+        '--outfile',
+        outfile as string,
+        '--format',
+        'cjs',
+        '--packages',
+        'external',
+      ],
+      { cwd: root, stdout: 'pipe', stderr: 'pipe' },
+    )
+    expect(bundle.exitCode).toBe(0)
+  }
 
   const esmEntry = Bun.spawnSync(['bun', 'scripts/write-esm-entry.ts'], {
     cwd: root,
@@ -56,26 +64,52 @@ function buildArtifacts() {
   expect(esmEntry.exitCode).toBe(0)
 }
 
-function preloadAndType(entry: string) {
+/**
+ * Runs `source` as a test file that preloads `preload`. The fixture lives
+ * outside the package so this suite never collects it, which rules out bare
+ * specifiers of installed packages and JSX - both resolve from the file's own
+ * directory. Absolute specifiers and `createElement` keep it portable.
+ */
+function runFixture(preload: string[], source: string) {
   const dir = mkdtempSync(join(tmpdir(), 'bun-test-env-dom-'))
   try {
-    // The fixture lives outside the package so this suite never collects it,
-    // which rules out bare specifiers and JSX - both resolve from the file's
-    // own directory. Absolute specifiers and `createElement` keep it portable.
-    const reactPath = Bun.resolveSync('react', root)
-    const rtlPath = Bun.resolveSync('@testing-library/react', root)
-    const entryPath = resolve(root, entry)
-
     writeFileSync(
       join(dir, 'bunfig.toml'),
-      `[test]\npreload = [${spec(entryPath)}]\ncoverage = false\n`,
+      `[test]\npreload = [${preload.map((entry) => spec(resolve(root, entry))).join(', ')}]\ncoverage = false\n`,
     )
-    writeFileSync(
-      join(dir, 'order.test.ts'),
-      `import { expect, mock, test } from 'bun:test'
-import { fireEvent, render } from ${spec(rtlPath)}
-import { createElement, useState } from ${spec(reactPath)}
-import { userEvent } from ${spec(entryPath)}
+    writeFileSync(join(dir, 'fixture.test.ts'), source)
+    const run = Bun.spawnSync(
+      [
+        'bun',
+        `--config=${join(dir, 'bunfig.toml')}`,
+        'test',
+        join(dir, 'fixture.test.ts'),
+      ],
+      { cwd: root, stdout: 'pipe', stderr: 'pipe' },
+    )
+    return {
+      output: decode(run.stderr) + decode(run.stdout),
+      exitCode: run.exitCode,
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+const reactPath = spec(Bun.resolveSync('react', root))
+const rtlPath = spec(Bun.resolveSync('@testing-library/react', root))
+
+test.each([
+  'dist/index.cjs',
+  'dist/index.mjs',
+])('%s registers a DOM first and re-exports a usable userEvent', (entry) => {
+  buildArtifacts()
+  const { output, exitCode } = runFixture(
+    [entry],
+    `import { expect, mock, test } from 'bun:test'
+import { fireEvent, render } from ${rtlPath}
+import { createElement, useState } from ${reactPath}
+import { userEvent } from ${spec(resolve(root, entry))}
 
 function Field({ onSubmit }: { onSubmit: (value: string) => void }) {
   const [value, setValue] = useState('')
@@ -114,32 +148,40 @@ test('the re-exported userEvent types into the React field', async () => {
   expect(onSubmit).toHaveBeenCalledWith('typed')
 })
 `,
-    )
-
-    const run = Bun.spawnSync(
-      [
-        'bun',
-        `--config=${join(dir, 'bunfig.toml')}`,
-        'test',
-        join(dir, 'order.test.ts'),
-      ],
-      { cwd: root, stdout: 'pipe', stderr: 'pipe' },
-    )
-    return {
-      output: decode(run.stderr) + decode(run.stdout),
-      exitCode: run.exitCode,
-    }
-  } finally {
-    rmSync(dir, { recursive: true, force: true })
-  }
-}
+  )
+  expect(output).toContain('2 pass')
+  expect(output).toContain('0 fail')
+  expect(exitCode).toBe(0)
+})
 
 test.each([
-  'dist/index.cjs',
-  'dist/index.mjs',
-])('%s registers a DOM first and re-exports a usable userEvent', (entry) => {
+  'dist/next.cjs',
+  'dist/next.mjs',
+])('%s stands in for next/* where Next.js is not installed', (entry) => {
   buildArtifacts()
-  const { output, exitCode } = preloadAndType(entry)
+  const { output, exitCode } = runFixture(
+    ['dist/index.cjs', entry],
+    `import { expect, test } from 'bun:test'
+import { fireEvent, render } from ${rtlPath}
+import { createElement } from ${reactPath}
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { router, setUrl } from ${spec(resolve(root, entry))}
+
+test('next/link navigates through the router a test imports', () => {
+  const view = render(createElement(Link, { href: '/about' }, 'About'))
+  fireEvent.click(view.getByText('About'))
+  expect(router.push).toHaveBeenCalledWith('/about', { scroll: true })
+  expect(useRouter()).toBe(router)
+})
+
+test('next/navigation reads the URL a test sets, from a clean state', () => {
+  expect(router.push).not.toHaveBeenCalled()
+  setUrl('/posts?page=2')
+  expect(usePathname()).toBe('/posts')
+})
+`,
+  )
   expect(output).toContain('2 pass')
   expect(output).toContain('0 fail')
   expect(exitCode).toBe(0)
