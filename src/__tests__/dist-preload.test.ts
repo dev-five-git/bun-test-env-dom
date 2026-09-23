@@ -20,6 +20,12 @@ const spec = (path: string) => JSON.stringify(path.replaceAll('\\', '/'))
  * `src/index.ts`, because the bundler decides where the registration lands
  * relative to the imports it emits. Source order proves nothing about what
  * consumers install.
+ *
+ * The same holds for the `userEvent` re-export: the CJS bundle resolves it
+ * through the bundler's interop helper, and `export { default as userEvent }`
+ * came out as user-event's whole module namespace (1.0.4), where
+ * `userEvent.type` is undefined. So the fixture also types through the
+ * `userEvent` it imports from the built entry.
  */
 
 function buildArtifacts() {
@@ -58,16 +64,18 @@ function preloadAndType(entry: string) {
     // own directory. Absolute specifiers and `createElement` keep it portable.
     const reactPath = Bun.resolveSync('react', root)
     const rtlPath = Bun.resolveSync('@testing-library/react', root)
+    const entryPath = resolve(root, entry)
 
     writeFileSync(
       join(dir, 'bunfig.toml'),
-      `[test]\npreload = [${spec(resolve(root, entry))}]\ncoverage = false\n`,
+      `[test]\npreload = [${spec(entryPath)}]\ncoverage = false\n`,
     )
     writeFileSync(
       join(dir, 'order.test.ts'),
       `import { expect, mock, test } from 'bun:test'
 import { fireEvent, render } from ${spec(rtlPath)}
 import { createElement, useState } from ${spec(reactPath)}
+import { userEvent } from ${spec(entryPath)}
 
 function Field({ onSubmit }: { onSubmit: (value: string) => void }) {
   const [value, setValue] = useState('')
@@ -97,6 +105,14 @@ test('fireEvent.change reaches the React onChange handler', () => {
   fireEvent.click(view.getByRole('button', { name: 'submit' }))
   expect(onSubmit).toHaveBeenCalledWith('typed')
 })
+
+test('the re-exported userEvent types into the React field', async () => {
+  const onSubmit = mock((_value: string) => {})
+  const view = render(createElement(Field, { onSubmit }))
+  await userEvent.type(view.getByLabelText('field'), 'typed')
+  await userEvent.click(view.getByRole('button', { name: 'submit' }))
+  expect(onSubmit).toHaveBeenCalledWith('typed')
+})
 `,
     )
 
@@ -121,10 +137,10 @@ test('fireEvent.change reaches the React onChange handler', () => {
 test.each([
   'dist/index.cjs',
   'dist/index.mjs',
-])('%s registers a DOM before @testing-library/react is evaluated', (entry) => {
+])('%s registers a DOM first and re-exports a usable userEvent', (entry) => {
   buildArtifacts()
   const { output, exitCode } = preloadAndType(entry)
-  expect(output).toContain('1 pass')
+  expect(output).toContain('2 pass')
   expect(output).toContain('0 fail')
   expect(exitCode).toBe(0)
 })
